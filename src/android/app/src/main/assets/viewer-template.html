@@ -45,6 +45,7 @@ hr { border: none; border-top: 2px solid #e5e7eb; margin: 24px 0; }
 <!-- MARKDOWN_CONTENT -->
 </div>
 <script src="core-bundle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>
 <script>
 (function() {
   var raw = document.getElementById('content').textContent;
@@ -59,6 +60,24 @@ hr { border: none; border-top: 2px solid #e5e7eb; margin: 24px 0; }
       h.id = h.textContent.toLowerCase().replace(/[^\w\u4e00-\u9fff-]+/g, '-').replace(/^-+|-+$/g, '');
     }
   });
+
+  if (typeof mermaid !== 'undefined') {
+    mermaid.initialize({ startOnLoad: false, securityLevel: 'sandbox' });
+    var placeholders = document.querySelectorAll('.mermaid-placeholder');
+    if (placeholders.length > 0) {
+      placeholders.forEach(function(p) {
+        var code = decodeURIComponent(p.getAttribute('data-mermaid-code') || '');
+        if (!code) return;
+        try {
+          mermaid.render(p.id, code)
+            .then(function(result) { p.innerHTML = result.svg; p.classList.add('mermaid-container'); })
+            .catch(function() { p.innerHTML = '<pre class="mermaid-error">Mermaid parse error</pre>'; });
+        } catch(e) {
+          p.innerHTML = '<pre class="mermaid-error">Mermaid render failed</pre>';
+        }
+      });
+    }
+  }
 })();
 </script>
 </body>
