@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MDReader - Markdown阅读器</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", -apple-system, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #app { height: 100vh; display: flex; flex-direction: column; }
+    .page { display: none; flex: 1; overflow: hidden; }
+    .page.active { display: flex; flex-direction: column; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="file-manager-page" class="page active"></div>
+    <div id="viewer-page" class="page"></div>
+  </div>
+  <script src="../../core/dist/core-bundle.js"></script>
+  <script src="file-manager.js"></script>
+  <script src="viewer.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

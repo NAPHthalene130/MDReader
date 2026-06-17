@@ -1,0 +1,11 @@
+{
+  "name": "md-reader-android",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MDReader Android app build scripts",
+  "scripts": {
+    "build": "node scripts/android-build.js",
+    "gradle:assembleDebug": "gradlew assembleDebug",
+    "gradle:assembleRelease": "gradlew assembleRelease"
+  }
+}

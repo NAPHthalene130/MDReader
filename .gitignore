@@ -1,0 +1,80 @@
+# Dependencies
+node_modules/
+*.tsbuildinfo
+
+# Build outputs
+dist/
+build/
+out/
+.build/
+
+# Platform-specific IDE files
+.idea/
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Build artifacts (except .build/ which is gitignored as a directory)
+*.apk
+*.aab
+*.exe
+*.msi
+*.AppImage
+*.dmg
+*.deb
+*.rpm
+
+# Android
+src/android/.gradle/
+src/android/build/
+src/android/app/build/
+src/android/local.properties
+src/android/*.iml
+
+# Gradle (keep wrapper files needed for building)
+.gradle/
+gradle/*/
+!gradle/wrapper/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Temp files
+*.tmp
+*.temp
+
+# Windows Electron
+src/windows/node_modules/
+src/windows/dist/
+
+# Core
+src/core/node_modules/
+src/core/dist/
+
+# Electron builder cache
+*.blockmap

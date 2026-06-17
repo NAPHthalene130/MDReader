@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MDReader</string>
+    <string name="btn_add_file">添加文件</string>
+    <string name="empty_file_list">暂无文件\n点击右下角 + 按钮添加 Markdown 文件</string>
+    <string name="toc_title">目录</string>
+    <string name="back">返回</string>
+    <string name="nav_files">文件</string>
+    <string name="nav_viewer">阅读</string>
+    <string name="file_remove">移除</string>
+    <string name="error_read_file">读取文件失败</string>
+</resources>

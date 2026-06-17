@@ -1,0 +1,157 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-core:
+    name: Build Shared Core
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        working-directory: src/core
+        run: npm ci
+
+      - name: Build core
+        working-directory: src/core
+        run: npm run build
+
+      - name: Run tests
+        working-directory: src/core
+        run: npm run test
+
+      - name: Extract version
+        id: version
+        working-directory: src/core
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Upload core bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-bundle
+          path: src/core/dist/core-bundle.js
+          retention-days: 1
+
+  build-windows:
+    name: Build Windows (.exe)
+    needs: build-core
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Download core bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: core-bundle
+          path: src/core/dist/
+
+      - name: Install dependencies
+        working-directory: src/windows
+        run: npm ci
+
+      - name: Build Electron app
+        working-directory: src/windows
+        run: npx electron-builder --win --publish=never
+
+      - name: Upload .exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: md-reader-windows
+          path: .build/windows/*.exe
+          if-no-files-found: error
+
+  build-android:
+    name: Build Android (.apk)
+    needs: build-core
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Download core bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: core-bundle
+          path: src/android/app/src/main/assets/
+
+      - name: Grant gradlew execute permission
+        working-directory: src/android
+        run: chmod +x gradlew
+
+      - name: Build APK
+        working-directory: src/android
+        run: ./gradlew assembleRelease
+
+      - name: Upload .apk artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: md-reader-android
+          path: src/android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+  release:
+    name: Create Release
+    needs: [build-core, build-windows, build-android]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: md-reader-windows
+          path: artifacts/
+
+      - name: Download Android artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: md-reader-android
+          path: artifacts/
+
+      - name: Rename artifacts with version
+        run: |
+          for f in artifacts/*.exe; do
+            base=$(basename "$f")
+            mv "$f" "artifacts/MDReader-v${{ needs.build-core.outputs.version }}-${base}"
+          done
+          for f in artifacts/*.apk; do
+            mv "$f" "artifacts/MDReader-v${{ needs.build-core.outputs.version }}.apk"
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.build-core.outputs.version }}
+          name: MDReader v${{ needs.build-core.outputs.version }}
+          files: artifacts/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

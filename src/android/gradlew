@@ -1,0 +1,17 @@
+#!/bin/sh
+# Gradle wrapper script for Unix/Mac
+# This script downloads and runs Gradle if not already installed
+
+set -e
+
+APP_HOME="$(cd "$(dirname "$0")" && pwd)"
+GRADLE_USER_HOME="${GRADLE_USER_HOME:-$HOME/.gradle}"
+
+# Use system gradle if available, otherwise download
+if command -v gradle >/dev/null 2>&1; then
+  exec gradle "$@"
+fi
+
+echo "Gradle not found. Please install Gradle or run 'gradle wrapper' to generate the wrapper."
+echo "For now, try: sdk install gradle 8.5"
+exit 1

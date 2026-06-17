@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_files"
+        android:title="@string/nav_files"
+        android:icon="@android:drawable/ic_menu_sort_by_size" />
+    <item
+        android:id="@+id/nav_viewer"
+        android:title="@string/nav_viewer"
+        android:icon="@android:drawable/ic_menu_view" />
+</menu>
