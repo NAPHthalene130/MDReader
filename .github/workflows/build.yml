@@ -3,11 +3,13 @@ name: Build and Release
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   build-core:
-    name: Build Shared Core
+    name: Build & Test Core
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -33,7 +35,6 @@ jobs:
 
       - name: Extract version
         id: version
-        working-directory: src/core
         run: |
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -48,6 +49,7 @@ jobs:
   build-windows:
     name: Build Windows (.exe)
     needs: build-core
+    if: github.event_name != 'pull_request'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -81,6 +83,7 @@ jobs:
   build-android:
     name: Build Android (.apk)
     needs: build-core
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -108,16 +111,62 @@ jobs:
         working-directory: src/android
         run: ./gradlew assembleRelease
 
+      - name: Copy APK to .build
+        run: |
+          mkdir -p .build/android
+          cp src/android/app/build/outputs/apk/release/*.apk .build/android/
+
       - name: Upload .apk artifact
         uses: actions/upload-artifact@v4
         with:
           name: md-reader-android
-          path: src/android/app/build/outputs/apk/release/*.apk
+          path: .build/android/*.apk
+          if-no-files-found: error
+
+  build-ios:
+    name: Build iOS (.app)
+    needs: build-core
+    if: github.event_name != 'pull_request'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '15.4'
+
+      - name: Download core bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: core-bundle
+          path: src/ios/MDReader/Resources/
+
+      - name: Build for iOS simulator
+        working-directory: src/ios
+        run: |
+          xcodebuild -project MDReader.xcodeproj \
+            -scheme MDReader \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -derivedDataPath .build \
+            build
+
+      - name: Upload .app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: md-reader-ios
+          path: src/ios/.build/Build/Products/Debug-iphonesimulator/MDReader.app
           if-no-files-found: error
 
   release:
     name: Create Release
-    needs: [build-core, build-windows, build-android]
+    needs: [build-core, build-windows, build-android, build-ios]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
@@ -135,14 +184,23 @@ jobs:
           name: md-reader-android
           path: artifacts/
 
+      - name: Download iOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: md-reader-ios
+          path: artifacts/
+
       - name: Rename artifacts with version
         run: |
+          VERSION="${{ needs.build-core.outputs.version }}"
           for f in artifacts/*.exe; do
-            base=$(basename "$f")
-            mv "$f" "artifacts/MDReader-v${{ needs.build-core.outputs.version }}-${base}"
+            [ -f "$f" ] && mv "$f" "artifacts/MDReader-v${VERSION}-setup.exe"
           done
           for f in artifacts/*.apk; do
-            mv "$f" "artifacts/MDReader-v${{ needs.build-core.outputs.version }}.apk"
+            [ -f "$f" ] && mv "$f" "artifacts/MDReader-v${VERSION}.apk"
+          done
+          for f in artifacts/*.app; do
+            [ -d "$f" ] && zip -r "artifacts/MDReader-v${VERSION}-ios.app.zip" "$f" && rm -rf "$f"
           done
 
       - name: Create GitHub Release
@@ -150,6 +208,21 @@ jobs:
         with:
           tag_name: v${{ needs.build-core.outputs.version }}
           name: MDReader v${{ needs.build-core.outputs.version }}
+          body: |
+            ## 产物
+
+            - **Windows**: `MDReader-v${{ needs.build-core.outputs.version }}-setup.exe`
+            - **Android**: `MDReader-v${{ needs.build-core.outputs.version }}.apk`
+            - **iOS**: `MDReader-v${{ needs.build-core.outputs.version }}-ios.app.zip` (模拟器构建)
+
+            ## 功能
+
+            - Markdown 解析与渲染 (CommonMark + GFM)
+            - LaTeX 数学公式 (行内 + 块级)
+            - Mermaid 图表实时渲染
+            - 代码语法高亮
+            - 目录导航
+            - 历史文件管理
           files: artifacts/*
           draft: false
           prerelease: false

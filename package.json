@@ -2,12 +2,14 @@
   "name": "md-reader",
   "version": "1.0.0",
   "private": true,
-  "description": "Cross-platform Markdown reader for Windows and Android",
+  "description": "Cross-platform Markdown reader for Windows, Android and iOS",
   "scripts": {
     "build:core": "npm --prefix src/core run build",
     "build:windows": "npm --prefix src/windows run build",
     "build:android": "npm run android:copy-core && npm --prefix src/android run build",
+    "build:ios": "npm run ios:copy-core && npm --prefix src/ios run build",
     "android:copy-core": "node scripts/copy-core-to-android.js",
+    "ios:copy-core": "node scripts/copy-core-to-ios.js",
     "build": "npm run build:core && npm run build:windows && npm run build:android",
     "dev:windows": "npm --prefix src/windows run dev",
     "test:core": "npm --prefix src/core run test"

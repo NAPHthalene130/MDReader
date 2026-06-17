@@ -28,7 +28,9 @@
       }
     ],
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "icon": null
     },
     "nsis": {
@@ -37,7 +39,7 @@
     }
   },
   "devDependencies": {
-    "electron": "^28.0.0",
+    "electron": "^28.3.3",
     "electron-builder": "^24.9.1"
   }
 }

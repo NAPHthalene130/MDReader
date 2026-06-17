@@ -70,17 +70,23 @@ export function renderToHtml(markdown: string, options: RenderOptions = {}): str
   parts.push('</head><body><div class="markdown-body">');
   parts.push(body);
   parts.push('</div>');
-  parts.push('<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>');
+  parts.push('<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>');
   parts.push(`
 <script>
 (function() {
+  if (typeof mermaid === 'undefined') return;
+  mermaid.initialize({ startOnLoad: false, securityLevel: 'sandbox' });
   var placeholders = document.querySelectorAll('.mermaid-placeholder');
+  if (placeholders.length === 0) return;
   placeholders.forEach(function(p) {
     var code = decodeURIComponent(p.getAttribute('data-mermaid-code') || '');
-    if (code && window.mermaid) {
-      window.mermaid.render(p.id, code)
-        .then(function(result) { p.innerHTML = result.svg; })
-        .catch(function() { p.innerHTML = '<pre class="mermaid-error">Mermaid parse error</pre>'; });
+    if (!code) return;
+    try {
+      mermaid.render(p.id, code)
+        .then(function(result) { p.innerHTML = result.svg; p.classList.add('mermaid-container'); })
+        .catch(function(err) { p.innerHTML = '<pre class="mermaid-error">Mermaid parse error</pre>'; });
+    } catch(e) {
+      p.innerHTML = '<pre class="mermaid-error">Mermaid render failed</pre>';
     }
   });
 })();

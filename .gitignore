@@ -49,10 +49,19 @@ src/android/app/build/
 src/android/local.properties
 src/android/*.iml
 
-# Gradle (keep wrapper files needed for building)
+# Gradle (keep wrapper jar and properties needed for building)
 .gradle/
 gradle/*/
 !gradle/wrapper/
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# iOS
+src/ios/.build/
+src/ios/*.xcworkspace/
+src/ios/MDReader.xcodeproj/xcuserdata/
+src/ios/MDReader.xcodeproj/project.xcworkspace/
+src/ios/Pods/
 
 # Logs
 *.log

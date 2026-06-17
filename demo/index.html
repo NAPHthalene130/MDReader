@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MDReader - 演示预览</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: "PingFang SC", "Microsoft YaHei", -apple-system, sans-serif;
+  background: #f0f2f5;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.toolbar {
+  display: flex; align-items: center; padding: 10px 20px;
+  background: #fff; border-bottom: 1px solid #e5e7eb; gap: 12px; flex-shrink: 0;
+}
+.toolbar h1 { font-size: 18px; color: #0366d6; flex: 1; }
+.toolbar .badge { font-size: 11px; background: #e5e7eb; padding: 3px 8px; border-radius: 10px; color: #6b7280; }
+.btn { padding: 7px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; border: 1px solid #d1d5db; background: #fff; color: #374151; font-family: inherit; transition: all 0.15s; }
+.btn:hover { background: #f9fafb; }
+.btn-primary { background: #0366d6; color: #fff; border-color: #0366d6; }
+.btn-primary:hover { background: #0550ae; }
+.main-layout { display: flex; flex: 1; overflow: hidden; }
+.sidebar {
+  width: 280px; background: #fff; border-right: 1px solid #e5e7eb;
+  overflow-y: auto; padding: 16px; flex-shrink: 0;
+}
+.sidebar h3 { font-size: 14px; color: #1a1a2e; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #0366d6; }
+.file-item {
+  display: flex; align-items: center; padding: 10px 12px;
+  border-radius: 8px; cursor: pointer; margin-bottom: 6px; transition: background 0.15s;
+}
+.file-item:hover { background: #f0f5ff; }
+.file-item.active { background: #0366d6; color: #fff; }
+.file-item .icon { margin-right: 10px; font-size: 20px; }
+.file-item .name { font-size: 14px; font-weight: 500; }
+.preview-area { flex: 1; overflow: hidden; }
+.preview-area iframe { width: 100%; height: 100%; border: none; background: #fff; }
+.select-file-hint {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; color: #9ca3af; font-size: 18px; flex-direction: column; gap: 8px;
+}
+.select-file-hint .icon { font-size: 64px; opacity: 0.4; }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <h1>MDReader</h1>
+  <span class="badge">预览模式</span>
+  <span class="badge">跨平台 Markdown 阅读器</span>
+</div>
+
+<div class="main-layout">
+  <div class="sidebar" id="sidebar">
+    <h3>示例文档</h3>
+    <div id="file-list"></div>
+  </div>
+  <div class="preview-area" id="preview-area">
+    <div class="select-file-hint" id="hint">
+      <div class="icon">←</div>
+      <div>从左侧选择一个文件开始阅读</div>
+    </div>
+    <iframe id="preview-frame" style="display:none"></iframe>
+  </div>
+</div>
+
+<script src="../src/core/dist/core-bundle.js"></script>
+<script>
+// Sample markdown files for demo
+var samples = {
+  'hello.md': '# 你好，MDReader!\n\n这是一个**跨平台 Markdown 阅读器**，支持 Windows 桌面和 Android 手机。\n\n## 支持的语法\n\n- **粗体** 和 *斜体*\n- ~~删除线~~\n- `行内代码`\n\n## 代码块\n\n```javascript\nfunction greet(name) {\n  return `你好, ${name}!`;\n}\n\nconsole.log(greet("世界"));\n```\n\n## 表格\n\n| 功能 | 状态 | 说明 |\n| --- | --- | --- |\n| Markdown 渲染 | 已完成 | CommonMark + GFM |\n| 文件管理 | 已完成 | 最近文件列表 |\n| LaTeX 数学 | 已完成 | 行内和块级公式 |\n| Mermaid 图表 | 已完成 | 流程图等 |\n\n## 引用\n\n> MDReader 是一个轻量级、高性能的 Markdown 阅读解决方案。\n\n---\n\n*感谢使用 MDReader！*',
+  'math.md': '# LaTeX 数学公式\n\n## 行内公式\n\n爱因斯坦质能方程: $E = mc^2$\n\n勾股定理: $a^2 + b^2 = c^2$\n\n## 块级公式\n\n$$\n\\sum_{i=1}^{n} x_i = x_1 + x_2 + \\cdots + x_n\n$$\n\n$$\n\\int_{0}^{\\infty} e^{-x^2} dx = \\frac{\\sqrt{\\pi}}{2}\n$$\n\n## 矩阵\n\n$$\n\\begin{pmatrix}\na & b \\\\\nc & d\n\\end{pmatrix}\n$$\n\n## 分数\n\n$$\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$\n',
+  'mermaid.md': '# Mermaid 图表\n\n## 流程图\n\n```mermaid\ngraph TD\n  A[开始] --> B{判断条件}\n  B -->|是| C[执行操作]\n  B -->|否| D[跳过]\n  C --> E[结束]\n  D --> E\n```\n\n## 时序图\n\n```mermaid\nsequenceDiagram\n  participant 用户\n  participant 应用\n  participant 服务器\n  用户->>应用: 打开文件\n  应用->>服务器: 请求数据\n  服务器-->>应用: 返回内容\n  应用-->>用户: 渲染 Markdown\n```\n',
+  'chinese.md': '# 中文排版测试\n\n## 这是一段中文内容\n\n中文排版 (Typography) 对于阅读体验至关重要。一个好的排版系统应该：\n\n1. 正确处理中英文混排时的间距\n2. 使用合适的中文字体栈\n3. 保持正确的行高和段落间距\n\n### 字体选择\n\n系统默认使用以下字体栈：\n\n- **苹方** (PingFang SC) — macOS / iOS\n- **微软雅黑** (Microsoft YaHei) — Windows\n- **思源黑体** (Noto Sans SC) — Android / Linux\n\n### 技术要点\n\n> "工欲善其事，必先利其器。" — 《论语》\n\n在开发 MDReader 时，我们特别关注了：\n\n- Markdown 解析引擎的选择\n- 跨平台 UI 一致性\n- 性能优化（大文件加载）\n\n| 平台 | 技术栈 | 状态 |\n| --- | --- | --- |\n| Windows | Electron + WebView | 开发中 |\n| Android | Kotlin + WebView | 开发中 |\n| 核心 | TypeScript + markdown-it | 已完成 |\n\n`代码示例` 在中文文本中也应该正确显示。\n'
+};
+
+var iframe = document.getElementById('preview-frame');
+var hint = document.getElementById('hint');
+var fileList = document.getElementById('file-list');
+var currentActive = null;
+
+function buildFileList() {
+  var html = '';
+  for (var name in samples) {
+    html += '<div class="file-item" data-file="' + name + '" onclick="openSample(\'' + name + '\')">';
+    html += '<span class="icon">📄</span>';
+    html += '<span class="name">' + name + '</span>';
+    html += '</div>';
+  }
+  fileList.innerHTML = html;
+}
+
+function openSample(name) {
+  var md = samples[name];
+  if (!md) return;
+
+  var prev = document.querySelector('.file-item.active');
+  if (prev) prev.classList.remove('active');
+
+  var items = document.querySelectorAll('.file-item');
+  items.forEach(function(el) {
+    if (el.dataset.file === name) el.classList.add('active');
+  });
+
+  var html;
+  if (window.MDReaderCore && window.MDReaderCore.renderToHtml) {
+    html = window.MDReaderCore.renderToHtml(md, {
+      includeKatexCss: true,
+      includeHighlightCss: true,
+      includeBaseCss: true
+    });
+  } else {
+    html = '<html><body><pre>' + md.replace(/</g, '&lt;') + '</pre></body></html>';
+  }
+
+  hint.style.display = 'none';
+  iframe.style.display = 'block';
+  iframe.srcdoc = html;
+}
+
+buildFileList();
+// Auto-open first file
+if (Object.keys(samples).length > 0) {
+  openSample(Object.keys(samples)[0]);
+}
+</script>
+</body>
+</html>

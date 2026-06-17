@@ -1,0 +1,12 @@
+{
+  "name": "md-reader-ios",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MDReader iOS app (SwiftUI + WKWebView)",
+  "scripts": {
+    "build": "xcodebuild -project MDReader.xcodeproj -scheme MDReader -configuration Release -sdk iphoneos build",
+    "build:simulator": "xcodebuild -project MDReader.xcodeproj -scheme MDReader -configuration Debug -sdk iphonesimulator build",
+    "open": "open MDReader.xcodeproj",
+    "copy-core": "cp ../core/dist/core-bundle.js MDReader/Resources/core-bundle.js"
+  }
+}
