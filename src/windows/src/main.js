@@ -30,6 +30,16 @@ function createWindow() {
   });
 }
 
+// Provide core-bundle.js to renderer via IPC (avoids path issues in packaged app)
+ipcMain.handle('core:getBundle', async () => {
+  const bundlePath = path.join(__dirname, '..', '..', 'core', 'dist', 'core-bundle.js');
+  try {
+    return fs.readFileSync(bundlePath, 'utf-8');
+  } catch {
+    return null;
+  }
+});
+
 // IPC Handlers
 
 ipcMain.handle('dialog:openFile', async () => {

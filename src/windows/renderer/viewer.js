@@ -1,6 +1,7 @@
 // viewer.js - Markdown 查看页面
 (function () {
   const container = document.getElementById('viewer-page');
+  if (!container) return;
 
   function init() {
     const style = document.createElement('style');
@@ -31,6 +32,10 @@
   async function openFile(filePath, fileName) {
     if (!filePath || typeof filePath !== 'string') {
       container.innerHTML = `<div class="v-error"><div class="v-error-icon">⚠️</div><div>无效的文件路径</div></div>`;
+      return;
+    }
+    if (!window.electronAPI) {
+      container.innerHTML = `<div class="v-error"><div class="v-error-icon">⚠️</div><div>Electron 环境未就绪</div></div>`;
       return;
     }
     const result = await window.electronAPI.readFile(filePath);

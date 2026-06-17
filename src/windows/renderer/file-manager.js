@@ -1,6 +1,7 @@
 // file-manager.js - 文件管理页面
 (function () {
   const container = document.getElementById('file-manager-page');
+  if (!container) return;
   let contentEl = null;
 
   function formatDate(isoString) {
@@ -76,11 +77,21 @@
   }
 
   async function load() {
-    const files = await window.electronAPI.getFileList();
-    renderFileList(files);
+    if (!window.electronAPI) {
+      contentEl.innerHTML = '<div class="fm-empty"><div class="fm-empty-icon">⚠️</div><h2>Electron 环境未就绪</h2></div>';
+      return;
+    }
+    try {
+      const files = await window.electronAPI.getFileList();
+      renderFileList(files);
+    } catch (err) {
+      console.error('Failed to load file list:', err);
+      renderFileList([]);
+    }
   }
 
   async function addFile() {
+    if (!window.electronAPI) return;
     try {
       const result = await window.electronAPI.openFileDialog();
       if (result) load();

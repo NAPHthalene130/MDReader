@@ -6,4 +6,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getFileList: () => ipcRenderer.invoke('file:getList'),
   removeFile: (filePath) => ipcRenderer.invoke('file:remove', filePath),
   getFileStats: (filePath) => ipcRenderer.invoke('file:getStats', filePath),
+  getCoreBundle: () => ipcRenderer.invoke('core:getBundle'),
 });
