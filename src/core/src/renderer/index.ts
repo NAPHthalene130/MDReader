@@ -67,8 +67,11 @@ export function renderToHtml(markdown: string, options: RenderOptions = {}): str
     parts.push('<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">');
   }
 
+  // Escape </script> to prevent breaking the inline script tag
+  const safeBody = body.replace(/<\/script>/gi, '<\\/script>');
+
   parts.push('</head><body><div class="markdown-body">');
-  parts.push(body);
+  parts.push(safeBody);
   parts.push('</div>');
   parts.push('<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>');
   parts.push(`
@@ -84,7 +87,7 @@ export function renderToHtml(markdown: string, options: RenderOptions = {}): str
     try {
       mermaid.render(p.id, code)
         .then(function(result) { p.innerHTML = result.svg; p.classList.add('mermaid-container'); })
-        .catch(function(err) { p.innerHTML = '<pre class="mermaid-error">Mermaid parse error</pre>'; });
+        .catch(function() { p.innerHTML = '<pre class="mermaid-error">Mermaid parse error</pre>'; });
     } catch(e) {
       p.innerHTML = '<pre class="mermaid-error">Mermaid render failed</pre>';
     }
