@@ -7,6 +7,7 @@
     "build:core": "npm --prefix src/core run build",
     "build:windows": "npm --prefix src/windows run build",
     "build:android": "npm run android:copy-core && npm --prefix src/android run build",
+    "build:android:release": "npm run android:copy-core && npm --prefix src/android run build -- --release",
     "build:ios": "npm run ios:copy-core && npm --prefix src/ios run build",
     "android:copy-core": "node scripts/copy-core-to-android.js",
     "ios:copy-core": "node scripts/copy-core-to-ios.js",

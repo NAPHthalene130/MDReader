@@ -47,15 +47,20 @@ try {
   // Create output directory
   fs.mkdirSync(buildOutputDir, { recursive: true });
 
-  // Run Gradle assembleDebug
-  console.log(`Running: ${gradleCmd} assembleDebug`);
-  execSync(`${gradleCmd} assembleDebug`, {
+  // Check if we want to build release
+  const isRelease = process.argv.includes('--release');
+  const task = isRelease ? 'assembleRelease' : 'assembleDebug';
+  const buildType = isRelease ? 'release' : 'debug';
+
+  // Run Gradle task
+  console.log(`Running: ${gradleCmd} ${task}`);
+  execSync(`${gradleCmd} ${task}`, {
     cwd: androidDir,
     stdio: 'inherit',
   });
 
   // Find the built APK
-  const apkSourceDir = path.join(androidDir, 'app', 'build', 'outputs', 'apk', 'debug');
+  const apkSourceDir = path.join(androidDir, 'app', 'build', 'outputs', 'apk', buildType);
   if (fs.existsSync(apkSourceDir)) {
     const apkFiles = fs.readdirSync(apkSourceDir).filter(f => f.endsWith('.apk'));
     for (const apk of apkFiles) {
