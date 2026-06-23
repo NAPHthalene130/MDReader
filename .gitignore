@@ -41,6 +41,9 @@ Desktop.ini
 *.dmg
 *.deb
 *.rpm
+*.jks
+*.keystore
+keystore.properties
 
 # Android
 src/android/.gradle/
