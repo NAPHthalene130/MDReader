@@ -210,7 +210,10 @@
         const anchor = link.dataset.anchor;
         const target = docBodyEl.querySelector(`#${escapeSelector(anchor)}`);
         if (target && contentEl) {
-          target.scrollIntoView({ block: 'start', behavior: 'smooth' });
+          const contentRect = contentEl.getBoundingClientRect();
+          const targetRect = target.getBoundingClientRect();
+          const targetTop = contentEl.scrollTop + targetRect.top - contentRect.top - 20;
+          contentEl.scrollTo({ top: targetTop, behavior: 'smooth' });
         }
       });
     });
@@ -226,7 +229,7 @@
       const mermaid = await ensureMermaidScript();
       if (renderToken !== currentRenderToken || !mermaid) return;
 
-      mermaid.initialize({ startOnLoad: false, securityLevel: 'sandbox' });
+      mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' });
       for (const placeholder of placeholders) {
         const code = decodeURIComponent(placeholder.getAttribute('data-mermaid-code') || '');
         if (!code) {
@@ -240,6 +243,14 @@
           if (renderToken !== currentRenderToken) return;
           placeholder.innerHTML = result.svg;
           placeholder.classList.add('mermaid-container');
+
+          // Clean up any lingering elements Mermaid might have appended to the body
+          ['', 'd', 'i'].forEach(prefix => {
+            const el = document.getElementById(prefix + svgId);
+            if (el && el.parentNode === document.body) {
+              el.remove();
+            }
+          });
         } catch (err) {
           placeholder.innerHTML = `<pre class="mermaid-error">${escapeHtml(err && err.message ? err.message : 'Mermaid parse error')}</pre>`;
         }

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <div id="ph"></div>
+  <script>
+    window.onload = async () => {
+      mermaid.initialize({ startOnLoad: false });
+      const ph = document.getElementById('ph');
+      const { svg } = await mermaid.render('test-svg', 'graph TD;\nA-->B;', ph);
+      console.log('Result SVG length:', svg.length);
+      console.log('Body children:', document.body.children.length);
+      for (let i = 0; i < document.body.children.length; i++) {
+        const child = document.body.children[i];
+        console.log(child.tagName, child.id);
+      }
+    };
+  </script>
+</body>
+</html>
