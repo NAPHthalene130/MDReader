@@ -79,6 +79,7 @@ describe('markdown-parser', () => {
 
     it('renders block math $$...$$', () => {
       const html = parseMarkdown('$$\n\\sum_{i=1}^{n} x_i\n$$');
+      console.log('TEST OUTPUT:', html);
       // Block math should produce a math-block div or similar
       expect(html).toContain('math');
     });

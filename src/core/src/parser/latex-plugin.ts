@@ -21,43 +21,85 @@ function renderLatex(latex: string, displayMode: boolean): string {
 }
 
 export function latexPlugin(md: MarkdownIt): void {
-  // Block math: $$...$$
+  // Block math rule for $$...$$
+  md.block.ruler.before('fence', 'math_block', (state, startLine, endLine, silent) => {
+    let start = state.bMarks[startLine] + state.tShift[startLine];
+    let max = state.eMarks[startLine];
+
+    if (start + 2 > max) {
+      return false;
+    }
+
+    if (state.src.charCodeAt(start) !== 0x24 /* $ */ || state.src.charCodeAt(start + 1) !== 0x24 /* $ */) {
+      return false;
+    }
+
+    if (silent) {
+      return true;
+    }
+
+    let nextLine = startLine;
+    let autoClosed = false;
+
+    // Check if it's closed on the same line
+    if (start + 3 <= max) {
+      const lineText = state.src.slice(start, max);
+      if (lineText.trim().endsWith('$$') && lineText.trim().length >= 4) {
+        nextLine = startLine;
+        autoClosed = true;
+      }
+    }
+
+    if (!autoClosed) {
+      let haveEndMarker = false;
+      for (nextLine = startLine + 1; nextLine < endLine; nextLine++) {
+        start = state.bMarks[nextLine] + state.tShift[nextLine];
+        max = state.eMarks[nextLine];
+
+        if (start < max && state.tShift[nextLine] < state.blkIndent) {
+          // non-empty line with negative indent should stop the list
+        }
+
+        const lineText = state.src.slice(start, max).trim();
+        if (lineText.endsWith('$$')) {
+          haveEndMarker = true;
+          break;
+        }
+      }
+      if (!haveEndMarker) {
+        // Unclosed block math is valid up to end of document
+        nextLine = endLine - 1;
+      }
+    }
+
+    state.line = nextLine + 1;
+    const token = state.push('math_block', 'math', 0);
+    token.block = true;
+    token.content = state.getLines(startLine, nextLine + 1, state.blkIndent, false);
+    token.map = [startLine, state.line];
+    token.markup = '$$';
+
+    return true;
+  }, { alt: [ 'paragraph', 'reference', 'blockquote', 'list' ] });
+
+  // Renderer for block math
   md.renderer.rules.math_block = (tokens, idx) => {
-    const content = tokens[idx].content;
+    let content = tokens[idx].content.trim();
+    if (content.startsWith('$$')) content = content.slice(2);
+    if (content.endsWith('$$')) content = content.slice(0, -2);
+    content = content.trim();
     return `<div class="math-block">${renderLatex(content, true)}</div>`;
   };
 
-  // Inline math: $...$
-  md.renderer.rules.math_inline = (tokens, idx) => {
-    const content = tokens[idx].content;
-    return `<span class="math-inline">${renderLatex(content, false)}</span>`;
-  };
-
-  // Custom rule to detect $$...$$ blocks
-  const defaultBlock = md.renderer.rules.code_block;
-  md.renderer.rules.code_block = (tokens, idx, options, env, slf) => {
-    const token = tokens[idx];
-    // Check if this is a math block (starts and ends with $$)
-    if (token.content.startsWith('$$') && token.content.endsWith('$$')) {
-      const latex = token.content.slice(2, -2).trim();
-      return `<div class="math-block">${renderLatex(latex, true)}</div>`;
-    }
-    if (defaultBlock) {
-      return defaultBlock(tokens, idx, options, env, slf);
-    }
-    return `<pre><code>${escapeHtml(token.content)}</code></pre>`;
-  };
-
   // Process inline math $...$ in text
-  // This is handled via a post-processing step on the HTML output
-  // because markdown-it does not natively support inline math
+  // This is a post-processing step on text tokens
   const defaultText = md.renderer.rules.text;
   md.renderer.rules.text = (tokens, idx, options, env, slf) => {
     const token = tokens[idx];
     if (token.content.includes('$') && token.content !== '$') {
       const parts = token.content.split(/(\$[^$]+\$)/g);
       const result = parts.map((part) => {
-        if (part.startsWith('$') && part.endsWith('$')) {
+        if (part.startsWith('$') && part.endsWith('$') && part.length > 1) {
           const latex = part.slice(1, -1);
           return `<span class="math-inline">${renderLatex(latex, false)}</span>`;
         }

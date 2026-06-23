@@ -7,6 +7,9 @@ module.exports = {
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'core-bundle.js',
+    // The bundle is injected as inline script text in Electron, so Webpack
+    // cannot rely on automatic script URL detection for publicPath.
+    publicPath: '',
     library: {
       name: 'MDReaderCore',
       type: 'umd',

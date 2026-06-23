@@ -6,6 +6,25 @@ const { FileStore } = require('./file-store');
 let mainWindow = null;
 let fileStore = null;
 
+function resolveCoreBundlePath() {
+  const candidates = [
+    // Development build output from the shared core package.
+    path.join(__dirname, '..', '..', 'core', 'dist', 'core-bundle.js'),
+    // Packaged Electron app extraResources output.
+    process.resourcesPath ? path.join(process.resourcesPath, 'core-bundle', 'core-bundle.js') : null,
+    // Repository fallback so Windows can still render Markdown before core is built.
+    path.join(__dirname, '..', '..', 'android', 'app', 'src', 'main', 'assets', 'core-bundle.js'),
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate && fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 function createWindow() {
   const userDataPath = app.getPath('userData');
   fileStore = new FileStore(path.join(userDataPath, 'recent-files.json'));
@@ -32,10 +51,15 @@ function createWindow() {
 
 // Provide core-bundle.js to renderer via IPC (avoids path issues in packaged app)
 ipcMain.handle('core:getBundle', async () => {
-  const bundlePath = path.join(__dirname, '..', '..', 'core', 'dist', 'core-bundle.js');
+  const bundlePath = resolveCoreBundlePath();
+  if (!bundlePath) {
+    console.error('MDReader: core-bundle.js not found in any known location');
+    return null;
+  }
   try {
     return fs.readFileSync(bundlePath, 'utf-8');
-  } catch {
+  } catch (err) {
+    console.error('MDReader: Failed to read core bundle:', err);
     return null;
   }
 });
