@@ -9,4 +9,12 @@
     <string name="nav_viewer">阅读</string>
     <string name="file_remove">移除</string>
     <string name="error_read_file">读取文件失败</string>
+    <string name="export">导出</string>
+    <string name="export_pdf">PDF</string>
+    <string name="export_jpg">JPG</string>
+    <string name="export_png">PNG</string>
+    <string name="export_generating">正在生成…</string>
+    <string name="export_success">已导出</string>
+    <string name="export_failed">导出失败</string>
+    <string name="export_no_content">导出内容为空</string>
 </resources>
