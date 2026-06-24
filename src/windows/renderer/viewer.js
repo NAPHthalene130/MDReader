@@ -3,7 +3,12 @@
   const container = document.getElementById('viewer-page');
   if (!container) return;
   let mermaidLoadPromise = null;
+  let mermaidInitialized = false;
   let currentRenderToken = 0;
+  let currentFileName = '';
+  let exportMenuEl = null;
+  let exportStatusEl = null;
+  let exportStatusTimer = null;
 
   function init() {
     ensureStaticAssets();
@@ -24,6 +29,8 @@
       .v-toolbar { display: flex; align-items: center; padding: 10px 20px; background: #fff; border-bottom: 1px solid #e5e7eb; gap: 12px; }
       .v-btn { padding: 7px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; border: 1px solid #d1d5db; background: #fff; color: #374151; font-family: inherit; transition: all 0.15s; white-space: nowrap; }
       .v-btn:hover { background: #f9fafb; border-color: #9ca3af; }
+      .v-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+      .v-btn:disabled:hover { background: #fff; border-color: #d1d5db; }
       .v-btn-back { font-weight: 600; }
       .v-filename { font-size: 14px; font-weight: 600; color: #1a1a2e; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .v-content { flex: 1; overflow: auto; background: #fff; }
@@ -67,6 +74,27 @@
       .v-doc-body .katex-error { color: #d73a49; }
       .v-error { display: flex; align-items: center; justify-content: center; height: 100%; color: #ef4444; font-size: 15px; flex-direction: column; gap: 8px; }
       .v-error-icon { font-size: 48px; opacity: 0.6; }
+      .v-export-menu { position: absolute; z-index: 1000; min-width: 150px; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); padding: 6px; font-family: inherit; }
+      .v-export-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; font-size: 13px; color: #374151; border-radius: 6px; cursor: pointer; white-space: nowrap; transition: background 0.15s; }
+      .v-export-item:hover { background: #f0f5ff; color: #0366d6; }
+      .v-export-item.disabled { color: #9ca3af; cursor: not-allowed; }
+      .v-export-item.disabled:hover { background: transparent; color: #9ca3af; }
+      .v-export-tag { font-size: 11px; color: #9ca3af; }
+      .v-export-status { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 10px 20px; border-radius: 8px; font-size: 13px; z-index: 1100; box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+      .v-export-status.ok { background: #0366d6; color: #fff; }
+      .v-export-status.err { background: #ef4444; color: #fff; }
+      .v-export-status.busy { background: #1a1a2e; color: #fff; }
+      @media print {
+        body { height: auto !important; overflow: visible !important; }
+        #app { height: auto !important; display: block !important; }
+        .page { display: block !important; overflow: visible !important; height: auto !important; }
+        .v-toc, .v-toolbar, .v-export-status, .v-export-menu { display: none !important; }
+        .v-layout { display: block !important; height: auto !important; }
+        .v-main { display: block !important; overflow: visible !important; height: auto !important; flex: none !important; }
+        .v-content { display: block !important; overflow: visible !important; height: auto !important; flex: none !important; background: #fff !important; }
+        .v-doc { display: block !important; overflow: visible !important; height: auto !important; min-height: 0 !important; }
+        .v-doc-body { max-width: 100% !important; }
+      }
     `;
     document.head.appendChild(style);
   }
@@ -170,6 +198,9 @@
 
   async function renderViewer(fileName, bodyHtml, tocEntries) {
     const renderToken = ++currentRenderToken;
+    currentFileName = fileName || '';
+    closeExportMenu();
+    closeExportStatus();
     container.innerHTML = `
       <div class="v-layout">
         <div class="v-toc" id="v-toc">
@@ -180,6 +211,7 @@
           <div class="v-toolbar">
             <button class="v-btn v-btn-back" id="v-back">← 返回</button>
             <span class="v-filename">${escapeHtml(fileName)}</span>
+            <button class="v-btn" id="v-export" disabled>导出</button>
             <button class="v-btn" id="v-toc-toggle">☰ 目录</button>
           </div>
           <div class="v-content" id="v-content">
@@ -193,6 +225,10 @@
     const docBodyEl = document.getElementById('v-doc-body');
     assignHeadingIds(docBodyEl, tocEntries);
     await renderMermaid(docBodyEl, renderToken);
+    if (renderToken === currentRenderToken) {
+      const exportBtn = document.getElementById('v-export');
+      if (exportBtn) exportBtn.disabled = false;
+    }
 
     document.getElementById('v-back').addEventListener('click', () => {
       window.App.showFileManager();
@@ -203,6 +239,15 @@
       tocVisible = !tocVisible;
       document.getElementById('v-toc').classList.toggle('hidden', !tocVisible);
     });
+
+    const exportBtn = document.getElementById('v-export');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (exportBtn.disabled) return;
+        showExportMenu(exportBtn);
+      });
+    }
 
     container.querySelectorAll('.v-toc-link').forEach((link) => {
       link.addEventListener('click', (e) => {
@@ -229,7 +274,10 @@
       const mermaid = await ensureMermaidScript();
       if (renderToken !== currentRenderToken || !mermaid) return;
 
-      mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' });
+      if (!mermaidInitialized) {
+        mermaid.initialize({ startOnLoad: false, securityLevel: 'loose' });
+        mermaidInitialized = true;
+      }
       for (const placeholder of placeholders) {
         const code = decodeURIComponent(placeholder.getAttribute('data-mermaid-code') || '');
         if (!code) {
@@ -333,6 +381,110 @@
   function escapeHtml(str) {
     if (!str) return '';
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function closeExportMenu() {
+    if (exportMenuEl) {
+      exportMenuEl.remove();
+      exportMenuEl = null;
+    }
+    document.removeEventListener('click', onExportMenuOutsideClick, true);
+  }
+
+  function onExportMenuOutsideClick(e) {
+    if (exportMenuEl && !exportMenuEl.contains(e.target) && e.target && e.target.id !== 'v-export') {
+      closeExportMenu();
+    }
+  }
+
+  function showExportMenu(anchorEl) {
+    closeExportMenu();
+    const menu = document.createElement('div');
+    menu.className = 'v-export-menu';
+    menu.innerHTML = `
+      <div class="v-export-item" data-format="pdf">PDF</div>
+      <div class="v-export-item disabled" data-format="jpg">JPG <span class="v-export-tag">敬请期待</span></div>
+      <div class="v-export-item disabled" data-format="png">PNG <span class="v-export-tag">敬请期待</span></div>
+    `;
+    document.body.appendChild(menu);
+
+    const rect = anchorEl.getBoundingClientRect();
+    let left = rect.right - menu.offsetWidth;
+    if (left < 8) left = 8;
+    menu.style.left = `${left}px`;
+    menu.style.top = `${rect.bottom + 6}px`;
+    exportMenuEl = menu;
+
+    menu.querySelectorAll('.v-export-item').forEach((item) => {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (item.classList.contains('disabled')) {
+          return;
+        }
+        const format = item.dataset.format;
+        closeExportMenu();
+        if (format === 'pdf') {
+          exportToPdf();
+        }
+      });
+    });
+
+    setTimeout(() => {
+      document.addEventListener('click', onExportMenuOutsideClick, true);
+    }, 0);
+  }
+
+  function deriveBaseName(fileName) {
+    if (!fileName) return 'export';
+    return fileName.replace(/\.(md|markdown|mdown|mkd)$/i, '');
+  }
+
+  async function exportToPdf() {
+    if (!window.electronAPI || typeof window.electronAPI.exportPdf !== 'function') {
+      showExportStatus('导出功能不可用', 'err');
+      return;
+    }
+    const baseName = deriveBaseName(currentFileName);
+    showExportStatus('正在生成 PDF…', 'busy');
+    let result;
+    try {
+      result = await window.electronAPI.exportPdf(baseName);
+    } catch (err) {
+      showExportStatus('导出失败：' + (err && err.message ? err.message : '未知错误'), 'err');
+      return;
+    }
+    if (result && result.canceled) {
+      closeExportStatus();
+      return;
+    }
+    if (result && result.success) {
+      showExportStatus('已导出 PDF', 'ok');
+    } else {
+      showExportStatus('导出失败：' + (result && result.error ? result.error : '未知错误'), 'err');
+    }
+  }
+
+  function showExportStatus(text, kind) {
+    closeExportStatus();
+    const el = document.createElement('div');
+    el.className = `v-export-status ${kind}`;
+    el.textContent = text;
+    document.body.appendChild(el);
+    exportStatusEl = el;
+    if (kind !== 'busy') {
+      exportStatusTimer = setTimeout(closeExportStatus, kind === 'ok' ? 3500 : 5000);
+    }
+  }
+
+  function closeExportStatus() {
+    if (exportStatusTimer) {
+      clearTimeout(exportStatusTimer);
+      exportStatusTimer = null;
+    }
+    if (exportStatusEl) {
+      exportStatusEl.remove();
+      exportStatusEl = null;
+    }
   }
 
   window.Viewer = { init, openFile };

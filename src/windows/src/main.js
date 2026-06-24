@@ -122,6 +122,40 @@ ipcMain.handle('file:getStats', async (_event, filePath) => {
   }
 });
 
+ipcMain.handle('export:pdf', async (_event, baseName) => {
+  if (!mainWindow) return { success: false, error: '窗口未就绪' };
+  const safeBaseName = (typeof baseName === 'string' && baseName.trim()) ? baseName.trim() : 'export';
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: '导出为 PDF',
+    defaultPath: `${safeBaseName}.pdf`,
+    filters: [{ name: 'PDF', extensions: ['pdf'] }],
+  });
+
+  if (result.canceled || !result.filePath) {
+    return { success: false, canceled: true };
+  }
+
+  const destPath = result.filePath;
+  try {
+    const pdfBuffer = await mainWindow.webContents.printToPDF({
+      printBackground: true,
+      pageSize: 'A4',
+      marginsType: 0,
+    });
+    await fs.promises.writeFile(destPath, pdfBuffer);
+    return { success: true, path: destPath };
+  } catch (err) {
+    try {
+      if (fs.existsSync(destPath)) {
+        await fs.promises.unlink(destPath);
+      }
+    } catch {
+      // Ignore cleanup errors; the primary error is what matters
+    }
+    return { success: false, error: err && err.message ? err.message : String(err) };
+  }
+});
+
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
