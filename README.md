@@ -1,118 +1,88 @@
 # MDReader
 
-跨平台 Markdown 阅读器，支持 Windows (Electron)、Android (WebView) 和 iOS (SwiftUI + WKWebView)。
+一个跨平台的 Markdown 阅读器，顺手写的，支持 Windows、Android 和 iOS。
 
-## 功能
+写这个的原因很简单——我在不同设备上看 .md 文件的需求挺多，但每个平台都要折腾不同的工具。干脆自己搞一个，渲染引擎共用，各端只做壳。
 
-- **Markdown 渲染** — CommonMark + GFM（表格、任务列表、删除线），基于 markdown-it
-- **LaTeX 数学公式** — 行内 `$...$` 和块级 `$$...$$`，通过 KaTeX 渲染
-- **Mermaid 图表** — 将 `mermaid` 代码块渲染为 SVG 图表（CDN 版本锁定 10.9.0）
-- **代码语法高亮** — highlight.js 语言感知高亮
-- **目录导航** — 提取标题生成可跳转的目录侧栏
-- **文件管理** — 最近阅读文件列表，支持添加和移除
-- **本地文件阅读** — 打开设备上的 `.md` / `.markdown` 文件
+## 能干什么
+
+- **Markdown 渲染**，基于 markdown-it，支持 CommonMark 和 GFM（表格、任务列表、删除线那些都有）
+- **LaTeX 数学公式**，行内和块级都支持，用 KaTeX 渲染
+- **Mermaid 图表**，把 mermaid 代码块直接转成 SVG
+- **代码高亮**，highlight.js，常见的语言都认
+- **目录导航**，自动提取标题生成侧栏目录，点击能跳
+- **最近阅读**，记录你打开过的文件，方便接着看
+- **本地文件**，打开设备上的 .md 或 .markdown 文件
 
 ## 项目结构
 
 ```
 src/
-  core/         共享 TypeScript 渲染引擎 (markdown-it + KaTeX + Mermaid + highlight.js)
-  windows/      Electron 桌面应用
-  android/      Kotlin Android 应用，WebView 承载渲染
-  ios/          SwiftUI + WKWebView iOS 应用
-scripts/        构建辅助脚本 (copy-core-to-android.js / copy-core-to-ios.js)
-demo/           Web 端功能演示页
+  core/      共享的 TypeScript 渲染引擎，所有平台都靠它
+  windows/   Electron 桌面端
+  android/   Kotlin + WebView 的 Android 端
+  ios/       SwiftUI + WKWebView 的 iOS 端
+  scripts/   构建用的辅助脚本
+  demo/      Web 端的演示页
 ```
 
-## 各端当前状态
+## 各平台进展
 
-| 平台 | 状态 | 说明 |
-|------|------|------|
-| Core | 有测试覆盖 | 26 个测试通过；导出 `parseMarkdown`、`renderToHtml`、`renderBodyOnly`、`extractToc` |
-| Windows | 代码已修复 | Electron 主进程 IPC + preload 注入 core-bundle；文件对话框、历史管理可用；已修复路径、DOM 空值、内容转义等 5 项问题 |
-| Android | APK 可构建 | WebView 加载 core-bundle.js + Mermaid CDN；实机验证待补充 |
-| iOS | 模拟器可构建 | SwiftUI NavigationSplitView 布局；WKWebView 注入 core-bundle.js 渲染；实机/App Store 验证待补充 |
+Core 部分已经比较稳了，26 个测试用例全过。
 
-> 注意：iOS 和 Android 端的代码已具备核心渲染能力，但尚未在真机上完整验证。上述"可用"指代码逻辑正确、CI 构建通过；不代表已通过实机兼容性测试。
+Windows 端之前有些小毛病（Electron IPC 和 preload 相关），修了 5 处，现在能用。
 
-## 快速开始
+Android 和 iOS 端代码逻辑没问题，CI 也能正常构建出 APK 和 .app。但说实话，还没在真机上完整跑过，如果有人愿意帮忙测一下那就太好了。
 
-### 前置条件
+## 跑起来
+
+### 环境要求
 
 - Node.js 18+
-- JDK 17+（仅 Android 构建）
-- Android SDK（仅 Android 构建）
-- Xcode 15.4+（仅 iOS 构建）
+- JDK 17+（Android）
+- Android SDK（Android）
+- Xcode 15.4+（iOS）
 
-### Core（所有端的前置步骤）
+### 步骤
+
+先把 Core 构建了，这是所有端的前置：
 
 ```bash
 cd src/core && npm install && npm run build
 ```
 
-### Windows (Electron)
+然后看你要跑哪个端：
 
 ```bash
+# Windows
 cd src/windows && npm install && npm run dev
-```
 
-打包：
-```bash
-cd src/windows && npx electron-builder --win
-```
-
-### Android
-
-```bash
-# 先构建 core，然后复制产物到 Android assets
+# Android
 npm run build:android
-# 或手动：cd src/android && ./gradlew assembleDebug
-```
 
-### iOS
-
-```bash
-# 先构建 core，然后复制产物到 iOS bundle
+# iOS
 npm run build:ios
-# 或在 Xcode 中打开 src/ios/MDReader.xcodeproj 运行
 ```
 
-根目录 `package.json` 提供便捷脚本：
+## CI / CD
 
-| 命令 | 说明 |
-|------|------|
-| `npm run build:core` | 构建 core 引擎 |
-| `npm run dev:windows` | 启动 Windows Electron 开发模式 |
-| `npm run build:windows` | 打包 Windows .exe |
-| `npm run build:android` | 构建 Android APK（含 copy-core） |
-| `npm run build:ios` | 构建 iOS（含 copy-core，需 macOS + Xcode） |
-| `npm run test:core` | 运行 core 测试 |
+push 或者提 PR 到 main 分支的时候，GitHub Actions 会自动构建，产物命名长这样：
 
-## CI/CD
+- `MDReader-v{version}-setup.exe`
+- `MDReader-v{version}.apk`
+- `MDReader-v{version}-ios.app.zip`
 
-GitHub Actions（`.github/workflows/build.yml`）：
+## 用到的轮子
 
-- **触发器**：push/PR 到 `main`，或手动触发
-- **build-core**：构建 core 产物并运行测试（ubuntu-latest，Node 18）
-- **build-windows**：构建 Windows `.exe`（windows-latest，仅非 PR 触发）
-- **build-android**：构建 Android `.apk`（ubuntu-latest，仅非 PR 触发）
-- **build-ios**：构建 iOS 模拟器 `.app`（macos-latest，仅非 PR 触发）
-- **release**：push 到 main 时自动创建 GitHub Release，上传带版本号的三端产物
+| 轮子 | 版本 | 干什么的 |
+|------|------|----------|
+| markdown-it | 14.x | Markdown 解析渲染 |
+| KaTeX | 0.16.9 | 数学公式渲染 |
+| Mermaid | 10.9.0 | 流程图/图表 |
+| highlight.js | 11.9 | 代码语法高亮 |
 
-产物命名：
-- Windows: `MDReader-v{version}-setup.exe`
-- Android: `MDReader-v{version}.apk`
-- iOS: `MDReader-v{version}-ios.app.zip`（模拟器构建）
+Core 用 TypeScript 写，Webpack 打包成 core-bundle.js，测试用的 Vitest。
 
-## 技术栈概览
+## 许可证
 
-- **渲染引擎**：markdown-it 14.x + KaTeX 0.16.9 + Mermaid 10.9.0 + highlight.js 11.9
-- **Core 构建**：TypeScript → Webpack → 单文件 `core-bundle.js`
-- **Windows**：Electron，contextIsolation 开启，nodeIntegration 关闭
-- **Android**：Kotlin + WebView，core-bundle.js 存放于 assets
-- **iOS**：SwiftUI + WKWebView，core-bundle.js 存放于 Resources
-- **测试**：Vitest，覆盖 parser 和 TOC 提取
-
-## License
-
-MIT
+MIT，随便用。
