@@ -77,9 +77,6 @@
       .v-export-menu { position: absolute; z-index: 1000; min-width: 150px; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); padding: 6px; font-family: inherit; }
       .v-export-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; font-size: 13px; color: #374151; border-radius: 6px; cursor: pointer; white-space: nowrap; transition: background 0.15s; }
       .v-export-item:hover { background: #f0f5ff; color: #0366d6; }
-      .v-export-item.disabled { color: #9ca3af; cursor: not-allowed; }
-      .v-export-item.disabled:hover { background: transparent; color: #9ca3af; }
-      .v-export-tag { font-size: 11px; color: #9ca3af; }
       .v-export-status { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 10px 20px; border-radius: 8px; font-size: 13px; z-index: 1100; box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
       .v-export-status.ok { background: #0366d6; color: #fff; }
       .v-export-status.err { background: #ef4444; color: #fff; }
@@ -403,8 +400,8 @@
     menu.className = 'v-export-menu';
     menu.innerHTML = `
       <div class="v-export-item" data-format="pdf">PDF</div>
-      <div class="v-export-item disabled" data-format="jpg">JPG <span class="v-export-tag">敬请期待</span></div>
-      <div class="v-export-item disabled" data-format="png">PNG <span class="v-export-tag">敬请期待</span></div>
+      <div class="v-export-item" data-format="jpg">JPG</div>
+      <div class="v-export-item" data-format="png">PNG</div>
     `;
     document.body.appendChild(menu);
 
@@ -418,13 +415,12 @@
     menu.querySelectorAll('.v-export-item').forEach((item) => {
       item.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (item.classList.contains('disabled')) {
-          return;
-        }
         const format = item.dataset.format;
         closeExportMenu();
         if (format === 'pdf') {
           exportToPdf();
+        } else if (format === 'jpg' || format === 'png') {
+          exportToImage(format);
         }
       });
     });
@@ -459,6 +455,55 @@
     }
     if (result && result.success) {
       showExportStatus('已导出 PDF', 'ok');
+    } else {
+      showExportStatus('导出失败：' + (result && result.error ? result.error : '未知错误'), 'err');
+    }
+  }
+
+  function buildStandaloneHtml() {
+    const docBody = document.getElementById('v-doc-body');
+    if (!docBody) return '';
+    const content = docBody.innerHTML;
+
+    const headNodes = Array.from(document.head.children);
+    const styles = [];
+    for (const node of headNodes) {
+      if (node.tagName === 'STYLE') {
+        styles.push(`<style>${node.textContent}</style>`);
+      } else if (node.tagName === 'LINK' && node.rel === 'stylesheet') {
+        styles.push(`<link rel="stylesheet" href="${node.href}">`);
+      }
+    }
+
+    return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">${styles.join('')}<style>body { background: #fff; padding: 24px; margin: 0; }</style></head><body><div class="v-doc-body">${content}</div></body></html>`;
+  }
+
+  async function exportToImage(format) {
+    const label = format === 'jpg' ? 'JPG' : 'PNG';
+    if (!window.electronAPI || typeof window.electronAPI.exportImage !== 'function') {
+      showExportStatus('导出功能不可用', 'err');
+      return;
+    }
+    const html = buildStandaloneHtml();
+    if (!html) {
+      showExportStatus('导出内容为空', 'err');
+      return;
+    }
+    const baseName = deriveBaseName(currentFileName);
+    showExportStatus(`正在生成 ${label}…`, 'busy');
+    let result;
+    try {
+      result = await window.electronAPI.exportImage(baseName, format, html);
+    } catch (err) {
+      showExportStatus('导出失败：' + (err && err.message ? err.message : '未知错误'), 'err');
+      return;
+    }
+    if (result && result.canceled) {
+      closeExportStatus();
+      return;
+    }
+    if (result && result.success) {
+      showExportStatus(`已导出 ${label}`, 'ok');
     } else {
       showExportStatus('导出失败：' + (result && result.error ? result.error : '未知错误'), 'err');
     }

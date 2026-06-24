@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { FileStore } = require('./file-store');
 
 let mainWindow = null;
@@ -153,6 +154,97 @@ ipcMain.handle('export:pdf', async (_event, baseName) => {
       // Ignore cleanup errors; the primary error is what matters
     }
     return { success: false, error: err && err.message ? err.message : String(err) };
+  }
+});
+
+ipcMain.handle('export:image', async (_event, baseName, format, html) => {
+  const validFormats = { jpg: 'jpg', png: 'png' };
+  const fmt = validFormats[format];
+  if (!fmt) return { success: false, error: '无效的导出格式' };
+  if (typeof html !== 'string' || html.trim() === '') return { success: false, error: '导出内容为空' };
+  if (!mainWindow) return { success: false, error: '窗口未就绪' };
+
+  const safeBaseName = (typeof baseName === 'string' && baseName.trim()) ? baseName.trim() : 'export';
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: fmt === 'jpg' ? '导出为 JPG' : '导出为 PNG',
+    defaultPath: `${safeBaseName}.${fmt}`,
+    filters: [{ name: fmt === 'jpg' ? 'JPEG' : 'PNG', extensions: [fmt] }],
+  });
+
+  if (result.canceled || !result.filePath) {
+    return { success: false, canceled: true };
+  }
+
+  const destPath = result.filePath;
+  const tmpOutPath = destPath + '.mdreader-tmp';
+  let offscreenWin = null;
+  let htmlTmpPath = null;
+  try {
+    // Write HTML to a temp file and load it via file:// to avoid Chromium's
+    // ~2MB data-URL length cap on large documents (embedded images / many SVGs).
+    htmlTmpPath = path.join(os.tmpdir(), `mdreader-export-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.html`);
+    await fs.promises.writeFile(htmlTmpPath, html, 'utf-8');
+
+    offscreenWin = new BrowserWindow({
+      width: 1000,
+      height: 800,
+      show: false,
+      webPreferences: { offscreen: false },
+    });
+
+    await offscreenWin.loadFile(htmlTmpPath);
+
+    await offscreenWin.webContents.executeJavaScript(
+      'new Promise(function(resolve){ if(document.fonts && document.fonts.ready){ document.fonts.ready.then(function(){ setTimeout(resolve, 300); }); } else { setTimeout(resolve, 300); } })'
+    );
+
+    const scrollHeight = await offscreenWin.webContents.executeJavaScript('document.documentElement.scrollHeight');
+    const contentHeight = Math.max(Math.ceil(scrollHeight || 800), 1);
+    offscreenWin.setContentSize(1000, contentHeight);
+
+    // Wait for the resize to complete and the new frame to be painted before
+    // capturing, instead of relying on a fixed timeout that may grab a stale frame.
+    await new Promise((resolve) => {
+      const t = setTimeout(resolve, 1000);
+      offscreenWin.once('resize', () => { clearTimeout(t); resolve(); });
+    });
+    await offscreenWin.webContents.executeJavaScript(
+      'new Promise(function(resolve){ requestAnimationFrame(function(){ requestAnimationFrame(resolve); }); })'
+    );
+
+    const image = await offscreenWin.webContents.capturePage();
+    if (!image || image.isEmpty()) {
+      throw new Error('图像捕获失败');
+    }
+
+    const buffer = fmt === 'jpg' ? image.toJPEG(90) : image.toPNG();
+    // Write to a temp file then atomically rename, so a pre-existing destPath
+    // (the user's overwrite target) is only replaced on full success and never
+    // wiped if the export fails.
+    await fs.promises.writeFile(tmpOutPath, buffer);
+    await fs.promises.rename(tmpOutPath, destPath);
+    return { success: true, path: destPath };
+  } catch (err) {
+    // Clean up only the temp files this run created; leave destPath untouched.
+    try {
+      if (fs.existsSync(tmpOutPath)) {
+        await fs.promises.unlink(tmpOutPath);
+      }
+    } catch {
+      // Ignore cleanup errors; the primary error is what matters
+    }
+    return { success: false, error: err && err.message ? err.message : String(err) };
+  } finally {
+    if (offscreenWin && !offscreenWin.isDestroyed()) {
+      offscreenWin.destroy();
+    }
+    if (htmlTmpPath) {
+      try {
+        await fs.promises.unlink(htmlTmpPath);
+      } catch {
+        // Ignore temp cleanup errors
+      }
+    }
   }
 });
 
