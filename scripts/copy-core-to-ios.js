@@ -1,4 +1,4 @@
-// Copy core bundle to iOS app bundle before Xcode build
+// Copy the built core bundle to the iOS app bundle before Xcode build
 const fs = require('fs');
 const path = require('path');
 
