@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/export_pdf"
+        android:title="@string/export_pdf" />
+    <item
+        android:id="@+id/export_jpg"
+        android:title="@string/export_jpg" />
+    <item
+        android:id="@+id/export_png"
+        android:title="@string/export_png" />
+</menu>

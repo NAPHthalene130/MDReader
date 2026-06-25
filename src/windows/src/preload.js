@@ -7,4 +7,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   removeFile: (filePath) => ipcRenderer.invoke('file:remove', filePath),
   getFileStats: (filePath) => ipcRenderer.invoke('file:getStats', filePath),
   getCoreBundle: () => ipcRenderer.invoke('core:getBundle'),
+  exportPdf: (baseName) => ipcRenderer.invoke('export:pdf', baseName),
+  exportImage: (baseName, format, html) => ipcRenderer.invoke('export:image', baseName, format, html),
 });

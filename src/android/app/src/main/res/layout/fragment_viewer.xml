@@ -39,6 +39,14 @@
                 android:paddingHorizontal="8dp" />
 
             <Button
+                android:id="@+id/viewer_export"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/export"
+                android:textSize="14sp"
+                style="@style/Widget.MaterialComponents.Button.TextButton" />
+
+            <Button
                 android:id="@+id/viewer_toc_toggle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
