@@ -192,15 +192,23 @@ jobs:
 
       - name: Rename artifacts with version
         run: |
+          shopt -s nullglob
           VERSION="${{ needs.build-core.outputs.version }}"
           for f in artifacts/*.exe; do
-            [ -f "$f" ] && mv "$f" "artifacts/MDReader-v${VERSION}-setup.exe"
+            if [ -f "$f" ]; then
+              mv "$f" "artifacts/MDReader-v${VERSION}-setup.exe"
+            fi
           done
           for f in artifacts/*.apk; do
-            [ -f "$f" ] && mv "$f" "artifacts/MDReader-v${VERSION}.apk"
+            if [ -f "$f" ]; then
+              mv "$f" "artifacts/MDReader-v${VERSION}.apk"
+            fi
           done
           for f in artifacts/*.app; do
-            [ -d "$f" ] && zip -r "artifacts/MDReader-v${VERSION}-ios.app.zip" "$f" && rm -rf "$f"
+            if [ -d "$f" ]; then
+              zip -r "artifacts/MDReader-v${VERSION}-ios.app.zip" "$f"
+              rm -rf "$f"
+            fi
           done
 
       - name: Create GitHub Release
