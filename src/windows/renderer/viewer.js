@@ -118,24 +118,36 @@
       return mermaidLoadPromise;
     }
 
-    mermaidLoadPromise = new Promise((resolve, reject) => {
+    mermaidLoadPromise = (async () => {
       const existing = document.getElementById('v-mermaid-script');
       if (existing) {
-        existing.addEventListener('load', () => resolve(window.mermaid), { once: true });
-        existing.addEventListener('error', () => reject(new Error('Mermaid script load failed')), { once: true });
-        return;
+        if (window.mermaid) {
+          return window.mermaid;
+        }
+        throw new Error('Mermaid script load failed');
       }
 
-      const script = document.createElement('script');
-      script.id = 'v-mermaid-script';
-      script.src = 'https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js';
-      script.onload = () => resolve(window.mermaid);
-      script.onerror = () => {
+      try {
+        if (!window.electronAPI || typeof window.electronAPI.getMermaidBundle !== 'function') {
+          throw new Error('Mermaid bundle API unavailable');
+        }
+        const bundleScript = await window.electronAPI.getMermaidBundle();
+        if (!bundleScript) {
+          throw new Error('Mermaid bundle not found');
+        }
+        const script = document.createElement('script');
+        script.id = 'v-mermaid-script';
+        script.textContent = bundleScript;
+        document.head.appendChild(script);
+        if (!window.mermaid) {
+          throw new Error('Mermaid script load failed');
+        }
+        return window.mermaid;
+      } catch (err) {
         mermaidLoadPromise = null;
-        reject(new Error('Mermaid script load failed'));
-      };
-      document.head.appendChild(script);
-    });
+        throw err;
+      }
+    })();
 
     return mermaidLoadPromise;
   }

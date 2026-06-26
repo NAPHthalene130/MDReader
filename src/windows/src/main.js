@@ -1,11 +1,61 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { fileURLToPath } = require('url');
 const { FileStore } = require('./file-store');
 
 let mainWindow = null;
 let fileStore = null;
+const appIndexPath = path.join(__dirname, '..', 'renderer', 'index.html');
+
+function normalizePath(filePath) {
+  return path.normalize(filePath || '').toLowerCase();
+}
+
+function isKnownFile(filePath) {
+  if (!fileStore || !filePath) return false;
+  const requested = normalizePath(filePath);
+  return fileStore.getFiles().some((file) => normalizePath(file.path) === requested);
+}
+
+function isAppUrl(targetUrl) {
+  try {
+    return normalizePath(fileURLToPath(targetUrl)) === normalizePath(appIndexPath);
+  } catch {
+    return false;
+  }
+}
+
+function openExternalIfSafe(targetUrl) {
+  try {
+    const parsed = new URL(targetUrl);
+    if (['http:', 'https:', 'mailto:'].includes(parsed.protocol)) {
+      shell.openExternal(targetUrl).catch((err) => {
+        console.error('MDReader: Failed to open external URL:', err);
+      });
+    }
+  } catch {
+    // Ignore malformed or unsupported navigation targets.
+  }
+}
+
+function attachNavigationGuards(browserWindow) {
+  browserWindow.webContents.on('will-navigate', (event, targetUrl) => {
+    if (isAppUrl(targetUrl)) return;
+    event.preventDefault();
+    openExternalIfSafe(targetUrl);
+  });
+
+  browserWindow.webContents.setWindowOpenHandler(({ url }) => {
+    openExternalIfSafe(url);
+    return { action: 'deny' };
+  });
+
+  browserWindow.webContents.on('will-attach-webview', (event) => {
+    event.preventDefault();
+  });
+}
 
 function resolveCoreBundlePath() {
   const candidates = [
@@ -15,6 +65,21 @@ function resolveCoreBundlePath() {
     process.resourcesPath ? path.join(process.resourcesPath, 'core-bundle', 'core-bundle.js') : null,
     // Repository fallback so Windows can still render Markdown before core is built.
     path.join(__dirname, '..', '..', 'android', 'app', 'src', 'main', 'assets', 'core-bundle.js'),
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate && fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function resolveMermaidBundlePath() {
+  const candidates = [
+    process.resourcesPath ? path.join(process.resourcesPath, 'assets', 'mermaid.min.js') : null,
+    path.join(__dirname, '..', '..', '..', 'mermaid.min.js'),
   ];
 
   for (const candidate of candidates) {
@@ -43,7 +108,8 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  attachNavigationGuards(mainWindow);
+  mainWindow.loadFile(appIndexPath);
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -61,6 +127,20 @@ ipcMain.handle('core:getBundle', async () => {
     return fs.readFileSync(bundlePath, 'utf-8');
   } catch (err) {
     console.error('MDReader: Failed to read core bundle:', err);
+    return null;
+  }
+});
+
+ipcMain.handle('asset:getMermaidBundle', async () => {
+  const bundlePath = resolveMermaidBundlePath();
+  if (!bundlePath) {
+    console.error('MDReader: mermaid.min.js not found in any known location');
+    return null;
+  }
+  try {
+    return fs.readFileSync(bundlePath, 'utf-8');
+  } catch (err) {
+    console.error('MDReader: Failed to read Mermaid bundle:', err);
     return null;
   }
 });
@@ -89,6 +169,7 @@ ipcMain.handle('dialog:openFile', async () => {
 
 ipcMain.handle('file:read', async (_event, filePath) => {
   if (!filePath) return { success: false, error: '无效的文件路径' };
+  if (!isKnownFile(filePath)) return { success: false, error: '文件未授权，请先通过打开文件对话框选择该文件' };
   try {
     const stats = fs.statSync(filePath);
     const MAX_SIZE = 50 * 1024 * 1024;
@@ -112,6 +193,7 @@ ipcMain.handle('file:remove', async (_event, filePath) => {
 });
 
 ipcMain.handle('file:getStats', async (_event, filePath) => {
+  if (!isKnownFile(filePath)) return null;
   try {
     const stats = fs.statSync(filePath);
     return {
@@ -189,7 +271,12 @@ ipcMain.handle('export:image', async (_event, baseName, format, html) => {
       width: 1000,
       height: 800,
       show: false,
-      webPreferences: { offscreen: false },
+      webPreferences: {
+        offscreen: false,
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+      },
     });
 
     await offscreenWin.loadFile(htmlTmpPath);
