@@ -25,6 +25,10 @@
       {
         "from": "../core/dist",
         "to": "core-bundle"
+      },
+      {
+        "from": "../../mermaid.min.js",
+        "to": "assets/mermaid.min.js"
       }
     ],
     "win": {

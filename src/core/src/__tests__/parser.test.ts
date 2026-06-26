@@ -69,6 +69,14 @@ describe('markdown-parser', () => {
       const html = parseMarkdown('---');
       expect(html).toContain('<hr');
     });
+
+    it('escapes raw HTML from markdown input', () => {
+      const html = parseMarkdown('<img src=x onerror="window.electronAPI.readFile(`/etc/passwd`)">\n\n<script>alert(1)</script>');
+      expect(html).not.toContain('<img src=x');
+      expect(html).not.toContain('<script>');
+      expect(html).toContain('&lt;img');
+      expect(html).toContain('&lt;script&gt;');
+    });
   });
 
   describe('LaTeX math', () => {

@@ -8,7 +8,7 @@ let md: MarkdownIt | null = null;
 function getParser(): MarkdownIt {
   if (!md) {
     md = new MarkdownIt({
-      html: true,
+      html: false,
       linkify: true,
       typographer: true,
       breaks: false,
