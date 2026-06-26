@@ -123,8 +123,9 @@ ipcMain.handle('file:getStats', async (_event, filePath) => {
   }
 });
 
-ipcMain.handle('export:pdf', async (_event, baseName) => {
+ipcMain.handle('export:pdf', async (_event, baseName, html) => {
   if (!mainWindow) return { success: false, error: '窗口未就绪' };
+  if (typeof html !== 'string' || html.trim() === '') return { success: false, error: '导出内容为空' };
   const safeBaseName = (typeof baseName === 'string' && baseName.trim()) ? baseName.trim() : 'export';
   const result = await dialog.showSaveDialog(mainWindow, {
     title: '导出为 PDF',
@@ -137,23 +138,58 @@ ipcMain.handle('export:pdf', async (_event, baseName) => {
   }
 
   const destPath = result.filePath;
+  const tmpOutPath = destPath + '.mdreader-tmp';
+  let offscreenWin = null;
+  let htmlTmpPath = null;
   try {
-    const pdfBuffer = await mainWindow.webContents.printToPDF({
+    htmlTmpPath = path.join(os.tmpdir(), `mdreader-export-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.html`);
+    await fs.promises.writeFile(htmlTmpPath, html, 'utf-8');
+
+    offscreenWin = new BrowserWindow({
+      width: 1000,
+      height: 800,
+      show: false,
+      webPreferences: {
+        offscreen: false,
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+      },
+    });
+
+    await offscreenWin.loadFile(htmlTmpPath);
+    await offscreenWin.webContents.executeJavaScript(
+      'new Promise(function(resolve){ if(document.fonts && document.fonts.ready){ document.fonts.ready.then(function(){ setTimeout(resolve, 300); }); } else { setTimeout(resolve, 300); } })'
+    );
+
+    const pdfBuffer = await offscreenWin.webContents.printToPDF({
       printBackground: true,
       pageSize: 'A4',
       marginsType: 0,
     });
-    await fs.promises.writeFile(destPath, pdfBuffer);
+    await fs.promises.writeFile(tmpOutPath, pdfBuffer);
+    await fs.promises.rename(tmpOutPath, destPath);
     return { success: true, path: destPath };
   } catch (err) {
     try {
-      if (fs.existsSync(destPath)) {
-        await fs.promises.unlink(destPath);
+      if (fs.existsSync(tmpOutPath)) {
+        await fs.promises.unlink(tmpOutPath);
       }
     } catch {
       // Ignore cleanup errors; the primary error is what matters
     }
     return { success: false, error: err && err.message ? err.message : String(err) };
+  } finally {
+    if (offscreenWin && !offscreenWin.isDestroyed()) {
+      offscreenWin.destroy();
+    }
+    if (htmlTmpPath) {
+      try {
+        await fs.promises.unlink(htmlTmpPath);
+      } catch {
+        // Ignore temp cleanup errors
+      }
+    }
   }
 });
 

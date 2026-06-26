@@ -440,11 +440,16 @@
       showExportStatus('导出功能不可用', 'err');
       return;
     }
+    const html = buildStandaloneHtml();
+    if (!html) {
+      showExportStatus('导出内容为空', 'err');
+      return;
+    }
     const baseName = deriveBaseName(currentFileName);
     showExportStatus('正在生成 PDF…', 'busy');
     let result;
     try {
-      result = await window.electronAPI.exportPdf(baseName);
+      result = await window.electronAPI.exportPdf(baseName, html);
     } catch (err) {
       showExportStatus('导出失败：' + (err && err.message ? err.message : '未知错误'), 'err');
       return;
